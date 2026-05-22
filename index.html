@@ -48,6 +48,29 @@
   .btn-refresh.spinning svg{animation:spin 1s linear infinite;}
   .btn-settings{background:none;border:1px solid var(--border);color:var(--muted);padding:8px 12px;border-radius:8px;font-size:12px;cursor:pointer;}
   .btn-settings:hover{color:var(--text);border-color:var(--text);}
+
+  /* OKR MODAL */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .modal-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;}
+  .modal-box h3{font-size:16px;font-weight:700;margin-bottom:4px;}
+  .modal-box .m-sub{font-size:12px;color:var(--muted);margin-bottom:20px;}
+  .okr-row{display:grid;grid-template-columns:120px 1fr 1fr;gap:10px;align-items:center;margin-bottom:10px;}
+  .okr-row .badge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;font-size:12px;font-weight:600;}
+  .badge-excellent{background:rgba(0,212,170,.15);color:#00d4aa;}
+  .badge-good{background:rgba(123,159,255,.15);color:#7b9fff;}
+  .badge-standard{background:rgba(255,189,46,.15);color:#ffbd2e;}
+  .badge-fair{background:rgba(255,107,53,.15);color:#ff6b35;}
+  .badge-poor{background:rgba(227,24,55,.15);color:#e31837;}
+  .okr-input{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:13px;width:100%;text-align:center;}
+  .okr-input:focus{outline:none;border-color:var(--accent);}
+  .okr-label{font-size:12px;color:var(--muted);text-align:center;}
+  .btn-save-okr{width:100%;margin-top:16px;padding:11px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;}
+  .btn-close-okr{width:100%;margin-top:8px;padding:10px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer;}
+
+  /* OKR indicator in chart */
+  .okr-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;}
+  .okr-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
+  .okr-legend-dot{width:12px;height:3px;border-radius:2px;}
   @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
   main{padding:24px;max-width:1200px;margin:0 auto;}
@@ -140,6 +163,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         Refresh
       </button>
+      <button class="btn-settings" onclick="showOKR()">🎯 OKR Target</button>
       <button class="btn-settings" onclick="showConfig()">⚙ Settings</button>
     </div>
   </header>
@@ -159,6 +183,46 @@
       <div class="loading-wrap"><div class="spinner"></div><div style="color:var(--muted);font-size:14px">Loading...</div></div>
     </div>
   </main>
+</div>
+
+<!-- OKR MODAL -->
+<div class="modal-overlay" id="okrModal" style="display:none">
+  <div class="modal-box">
+    <h3>🎯 OKR Target Setting</h3>
+    <div class="m-sub">กำหนดเป้าหมาย Ticket ต่อวันต่อคน · แสดงผลในกราฟ</div>
+    <div class="okr-row">
+      <div class="okr-label">ระดับ</div>
+      <div class="okr-label">จำนวน Tickets (≥)</div>
+      <div class="okr-label">Label</div>
+    </div>
+    <div class="okr-row">
+      <span class="badge badge-excellent">⭐ Excellent</span>
+      <input class="okr-input" id="okr5" type="number" min="1" value="12">
+      <input class="okr-input" id="okr5l" type="text" value="Excellent">
+    </div>
+    <div class="okr-row">
+      <span class="badge badge-good">👍 Good</span>
+      <input class="okr-input" id="okr4" type="number" min="1" value="10">
+      <input class="okr-input" id="okr4l" type="text" value="Good">
+    </div>
+    <div class="okr-row">
+      <span class="badge badge-standard">✅ Standard</span>
+      <input class="okr-input" id="okr3" type="number" min="1" value="8">
+      <input class="okr-input" id="okr3l" type="text" value="Standard">
+    </div>
+    <div class="okr-row">
+      <span class="badge badge-fair">⚠️ Fair</span>
+      <input class="okr-input" id="okr2" type="number" min="1" value="7">
+      <input class="okr-input" id="okr2l" type="text" value="Fair">
+    </div>
+    <div class="okr-row">
+      <span class="badge badge-poor">❌ Poor</span>
+      <input class="okr-input" id="okr1" type="number" min="1" value="0">
+      <input class="okr-input" id="okr1l" type="text" value="Below Target">
+    </div>
+    <button class="btn-save-okr" onclick="saveOKR()">💾 Save OKR Targets</button>
+    <button class="btn-close-okr" onclick="closeOKR()">ปิด</button>
+  </div>
 </div>
 
 <script>
@@ -303,7 +367,68 @@ function fetchData(){
   document.head.appendChild(s);
 }
 
-// รายชื่อทีม ISR (ใช้สำหรับ reference เท่านั้น ไม่ใช้ whitelist filter)
+// ===== OKR =====
+let okrTargets = {
+  5:{min:12,label:'Excellent',color:'#00d4aa'},
+  4:{min:10,label:'Good',color:'#7b9fff'},
+  3:{min:8,label:'Standard',color:'#ffbd2e'},
+  2:{min:7,label:'Fair',color:'#ff6b35'},
+  1:{min:0,label:'Below Target',color:'#e31837'}
+};
+
+function loadOKR(){
+  try {
+    const s = localStorage.getItem('isr_okr');
+    if(s) okrTargets = JSON.parse(s);
+  } catch(e){}
+}
+
+function showOKR(){
+  loadOKR();
+  document.getElementById('okr5').value = okrTargets[5].min;
+  document.getElementById('okr4').value = okrTargets[4].min;
+  document.getElementById('okr3').value = okrTargets[3].min;
+  document.getElementById('okr2').value = okrTargets[2].min;
+  document.getElementById('okr1').value = okrTargets[1].min;
+  document.getElementById('okr5l').value = okrTargets[5].label;
+  document.getElementById('okr4l').value = okrTargets[4].label;
+  document.getElementById('okr3l').value = okrTargets[3].label;
+  document.getElementById('okr2l').value = okrTargets[2].label;
+  document.getElementById('okr1l').value = okrTargets[1].label;
+  document.getElementById('okrModal').style.display='flex';
+}
+
+function closeOKR(){
+  document.getElementById('okrModal').style.display='none';
+}
+
+function saveOKR(){
+  okrTargets[5].min = parseInt(document.getElementById('okr5').value)||12;
+  okrTargets[4].min = parseInt(document.getElementById('okr4').value)||10;
+  okrTargets[3].min = parseInt(document.getElementById('okr3').value)||8;
+  okrTargets[2].min = parseInt(document.getElementById('okr2').value)||7;
+  okrTargets[1].min = parseInt(document.getElementById('okr1').value)||0;
+  okrTargets[5].label = document.getElementById('okr5l').value||'Excellent';
+  okrTargets[4].label = document.getElementById('okr4l').value||'Good';
+  okrTargets[3].label = document.getElementById('okr3l').value||'Standard';
+  okrTargets[2].label = document.getElementById('okr2l').value||'Fair';
+  okrTargets[1].label = document.getElementById('okr1l').value||'Below Target';
+  try { localStorage.setItem('isr_okr', JSON.stringify(okrTargets)); } catch(e){}
+  closeOKR();
+  // Re-render chart
+  if(lastIssues) renderDashboard(lastIssues, lastTodayStr, lastNow);
+}
+
+function getOKRLevel(count){
+  if(count >= okrTargets[5].min) return okrTargets[5];
+  if(count >= okrTargets[4].min) return okrTargets[4];
+  if(count >= okrTargets[3].min) return okrTargets[3];
+  if(count >= okrTargets[2].min) return okrTargets[2];
+  return okrTargets[1];
+}
+
+// เก็บ data ล่าสุดไว้ re-render ตอนเปลี่ยน OKR
+let lastIssues=null, lastTodayStr='', lastNow=null;
 const TEAM_EMAILS = [
   'apichonc@airasia.com',
   'chakajwitj@airasia.com',
@@ -321,6 +446,8 @@ const TEAM_EMAILS = [
 ];
 
 function renderDashboard(issues,todayStr,now){
+  lastIssues=issues; lastTodayStr=todayStr; lastNow=now;
+  loadOKR();
   const counts={};
 
   for(const issue of issues){
@@ -340,19 +467,22 @@ function renderDashboard(issues,todayStr,now){
   const top=sorted[0];
   const avg=members>0?(total/members).toFixed(1):0;
   const maxCount=top?top[1].count:1;
-  const colors=sorted.map((_,i)=>i===0?'#e31837':i===1?'#ff6b35':i===2?'#ffd700':'#3d4278');
+  const colors = sorted.map(([,d]) => getOKRLevel(d.count).color);
 
   let html=`
   <div class="stat-row">
     <div class="stat-card"><div class="s-label">Total Done Today</div><div class="s-value">${total}</div><div class="s-sub">Tickets closed today</div></div>
     <div class="stat-card green"><div class="s-label">Active Members</div><div class="s-value">${members}</div><div class="s-sub">People with Done tickets</div></div>
     <div class="stat-card orange"><div class="s-label">Avg per Person</div><div class="s-value">${avg}</div><div class="s-sub">Tickets / member</div></div>
-    <div class="stat-card"><div class="s-label">Top Performer</div><div class="s-value" style="font-size:22px;margin-top:6px">${top?top[0].split(' ')[0]:'—'}</div><div class="s-sub">${top?top[1].count+' tickets':'No data'}</div></div>
+    <div class="stat-card"><div class="s-label">Top Performer</div><div class="s-value" style="font-size:22px;margin-top:6px">${top?top[0].split(' ')[0]:'—'}</div><div class="s-sub">${top?top[1].count+' tickets · '+getOKRLevel(top[1].count).label:'No data'}</div></div>
   </div>
   <div class="chart-card">
     <h3>📊 Done Tickets by Member</h3>
     <div class="ch-sub">วันที่ ${todayStr} · อัปเดต ${now.toLocaleTimeString('th-TH')}</div>
     <div class="chart-wrap"><canvas id="myChart"></canvas></div>
+    <div class="okr-legend">
+      ${[5,4,3,2,1].map(k=>`<div class="okr-legend-item"><div class="okr-legend-dot" style="background:${okrTargets[k].color}"></div>${okrTargets[k].label} (≥${okrTargets[k].min})</div>`).join('')}
+    </div>
   </div>
   <div class="lb-card">
     <h3>🏆 Leaderboard</h3>
@@ -363,12 +493,18 @@ function renderDashboard(issues,todayStr,now){
         const rl=i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1;
         const init=name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
         const pct=(d.count/maxCount*100).toFixed(1);
+        const okr=getOKRLevel(d.count);
         return `<div class="lb-row">
           <div class="lb-rank ${rc}">${rl}</div>
           <div class="lb-avatar">${d.avatar?`<img src="${d.avatar}" onerror="this.parentElement.textContent='${init}'">`:`${init}`}</div>
           <div class="lb-info"><div class="lb-name">${name}</div><div class="lb-email">${d.email}</div></div>
-          <div class="lb-bar-wrap"><div class="lb-bar-bg"><div class="lb-bar-fill" style="width:${pct}%"></div></div></div>
-          <div class="lb-count">${d.count}</div>
+          <div class="lb-bar-wrap">
+            <div class="lb-bar-bg"><div class="lb-bar-fill" style="width:${pct}%;background:${okr.color}"></div></div>
+          </div>
+          <div style="min-width:80px;text-align:right">
+            <div class="lb-count" style="color:${okr.color}">${d.count}</div>
+            <div style="font-size:10px;color:${okr.color};margin-top:1px">${okr.label}</div>
+          </div>
         </div>`;
       }).join('')}
   </div>`;
