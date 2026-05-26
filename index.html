@@ -185,7 +185,30 @@
   </main>
 </div>
 
-<!-- OKR MODAL -->
+<!-- TICKET DETAIL MODAL -->
+<div class="ticket-modal-overlay" id="ticketModal" style="display:none" onclick="if(event.target===this)closeTicketModal()">
+  <div class="ticket-modal">
+    <div class="tm-header">
+      <div>
+        <div id="tmPersonName" style="font-size:12px;color:var(--muted);margin-bottom:4px"></div>
+        <div class="tm-title" id="tmTitle">Loading...</div>
+      </div>
+      <button class="tm-close" onclick="closeTicketModal()">✕</button>
+    </div>
+    <div class="tm-body">
+      <div class="tm-tabs">
+        <div class="tm-tab active" onclick="switchTab('list')">📋 All Tickets</div>
+        <div class="tm-tab" onclick="switchTab('detail')" id="detailTab" style="display:none">🔍 Ticket Detail</div>
+      </div>
+      <div class="tm-tab-content active" id="tabList">
+        <div id="tmTicketList" class="tm-loading">Loading tickets...</div>
+      </div>
+      <div class="tm-tab-content" id="tabDetail">
+        <div id="tmDetail"></div>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="okrModal" style="display:none">
   <div class="modal-box">
     <h3>🎯 OKR Target Setting</h3>
@@ -367,7 +390,148 @@ function fetchData(){
   document.head.appendChild(s);
 }
 
-// ===== OKR =====
+// ===== TICKET DETAIL MODAL =====
+let currentMemberIssues = {};
+
+function openMemberTickets(name, issues) {
+  currentMemberIssues[name] = issues;
+  document.getElementById('tmPersonName').textContent = '👤 ' + name;
+  document.getElementById('tmTitle').textContent = `${issues.length} Tickets Done Today`;
+  document.getElementById('ticketModal').style.display = 'flex';
+  switchTab('list');
+  renderTicketList(name, issues);
+}
+
+function closeTicketModal() {
+  document.getElementById('ticketModal').style.display = 'none';
+  document.getElementById('detailTab').style.display = 'none';
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tm-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tm-tab-content').forEach(t => t.classList.remove('active'));
+  if (tab === 'list') {
+    document.querySelectorAll('.tm-tab')[0].classList.add('active');
+    document.getElementById('tabList').classList.add('active');
+  } else {
+    document.querySelectorAll('.tm-tab')[1].classList.add('active');
+    document.getElementById('tabDetail').classList.add('active');
+  }
+}
+
+function renderTicketList(name, issues) {
+  const list = document.getElementById('tmTicketList');
+  if (!issues.length) { list.innerHTML = '<div class="tm-loading">No tickets found</div>'; return; }
+  list.innerHTML = issues.map(issue => {
+    const f = issue.fields;
+    const mainCat = f.customfield_10082?.value || '—';
+    const subCat = f.customfield_10082?.child?.value || '';
+    const reqType = f.customfield_10010?.requestType?.name || f.issuetype?.name || '—';
+    const summary = f.summary || issue.key;
+    return `<div class="tm-ticket-row" onclick="openTicketDetail('${issue.key}')">
+      <div class="tm-ticket-key">${issue.key}</div>
+      <div style="flex:1">
+        <div class="tm-ticket-summary">${summary}</div>
+        <div class="tm-ticket-cat">${mainCat}${subCat ? ' › ' + subCat : ''} · ${reqType}</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);text-align:right">
+        ${f.priority?.name || ''}<br>
+        <span style="color:var(--green)">→</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function openTicketDetail(issueKey) {
+  document.getElementById('detailTab').style.display = 'block';
+  document.getElementById('tmDetail').innerHTML = '<div class="tm-loading"><div class="spinner" style="width:24px;height:24px;margin:0 auto 10px"></div>Loading detail...</div>';
+  switchTab('detail');
+
+  const cbName = 'detailCb_' + Date.now();
+  const url = `${cfg.proxyUrl}?issueKey=${issueKey}&callback=${cbName}`;
+
+  let settled = false;
+  const timer = setTimeout(() => {
+    if (settled) return; settled = true;
+    document.getElementById('tmDetail').innerHTML = '<div class="tm-loading">⚠️ Timeout loading ticket detail</div>';
+  }, 15000);
+
+  window[cbName] = (data) => {
+    if (settled) return; settled = true;
+    clearTimeout(timer); delete window[cbName];
+    const s = document.getElementById('_detail_jsonp');
+    if (s) s.remove();
+    if (data.error || data.errorMessages) {
+      document.getElementById('tmDetail').innerHTML = `<div class="tm-loading">⚠️ ${data.error || data.errorMessages?.[0]}</div>`;
+      return;
+    }
+    renderTicketDetail(data);
+  };
+
+  const s = document.createElement('script');
+  s.id = '_detail_jsonp';
+  s.onerror = () => {
+    if (settled) return; settled = true;
+    document.getElementById('tmDetail').innerHTML = '<div class="tm-loading">⚠️ Failed to load ticket detail</div>';
+  };
+  s.src = url;
+  document.head.appendChild(s);
+}
+
+function extractText(node) {
+  if (!node) return '—';
+  if (typeof node === 'string') return node;
+  if (node.type === 'doc' || node.type === 'paragraph') {
+    return (node.content || []).map(extractText).join(' ');
+  }
+  if (node.type === 'text') return node.text || '';
+  if (Array.isArray(node.content)) return node.content.map(extractText).join(' ');
+  return '—';
+}
+
+function renderTicketDetail(issue) {
+  const f = issue.fields;
+  const summary = f.summary || issue.key;
+  const description = extractText(f.description);
+  const resRemarks = extractText(f.customfield_10056);
+  const mainCat = f.customfield_10082?.value || '—';
+  const subCat = f.customfield_10082?.child?.value || '—';
+  const reqType = f.customfield_10010?.requestType?.name || f.issuetype?.name || '—';
+  const dept = f.customfield_10258 || '—';
+  const subDept = f.customfield_11086 || '—';
+  const priority = f.priority?.name || '—';
+  const status = f.status?.name || '—';
+  const resDate = f.resolutiondate ? new Date(f.resolutiondate).toLocaleString('th-TH') : '—';
+  const okr = getOKRLevel(0);
+  const jiraUrl = `https://airasia.atlassian.net/browse/${issue.key}`;
+
+  document.getElementById('tmTitle').textContent = summary;
+  document.getElementById('tmDetail').innerHTML = `
+    <div class="tm-meta">
+      <span class="tm-badge" style="background:rgba(0,212,170,.15);color:#00d4aa">${issue.key}</span>
+      <span class="tm-badge" style="background:rgba(123,159,255,.15);color:#7b9fff">${status}</span>
+      <span class="tm-badge" style="background:rgba(255,189,46,.15);color:#ffbd2e">${priority}</span>
+      <a href="${jiraUrl}" target="_blank" class="tm-link">🔗 Open in Jira</a>
+    </div>
+    <div class="tm-section">📂 Category</div>
+    <table class="tm-table">
+      <tr><td>Main Category</td><td><b>${mainCat}</b></td></tr>
+      <tr><td>Sub Category</td><td>${subCat}</td></tr>
+      <tr><td>Request Type</td><td>${reqType}</td></tr>
+      <tr><td>Department</td><td>${dept}</td></tr>
+      <tr><td>Sub Department</td><td>${subDept}</td></tr>
+    </table>
+    <div class="tm-section">📝 Description</div>
+    <div class="tm-desc">${description}</div>
+    ${resRemarks !== '—' ? `
+    <div class="tm-section">✅ Resolution Remarks</div>
+    <div class="tm-desc">${resRemarks}</div>` : ''}
+    <div class="tm-section">⏱ Timeline</div>
+    <table class="tm-table">
+      <tr><td>Resolved</td><td>${resDate}</td></tr>
+      <tr><td>SLA Time</td><td>${f.customfield_10030?.completedCycles?.[0]?.elapsedTime?.friendly || '—'}</td></tr>
+    </table>`;
+}
 let okrTargets = {
   5:{min:12,label:'Excellent',color:'#00d4aa'},
   4:{min:10,label:'Good',color:'#7b9fff'},
@@ -461,8 +625,17 @@ function renderDashboard(issues,todayStr,now){
     if(!counts[name]) counts[name]={count:0,avatar:a?.avatarUrls?.['48x48']||null,email:a?.emailAddress||''};
     counts[name].count++;
   }
-  // เรียงจากมากไปน้อย แสดงเฉพาะคนที่มี ticket > 0
-  const sorted=Object.entries(counts).filter(e=>e[1].count>0).sort((a,b)=>b[1].count-a[1].count);
+  // เก็บ issues ต่อคนสำหรับ click
+  const memberIssuesMap = {};
+  for (const issue of issues) {
+    const a = issue.fields.assignee;
+    if (!a) continue;
+    const rawName = (a.displayName||a.emailAddress||'Unknown').replace(/\s*-\s*$/,'').trim();
+    const matched = TEAM_EMAILS.find(e => (a.emailAddress||'').toLowerCase().includes(e.split('@')[0]));
+    const key = matched ? (sorted.find(([n])=>n.toLowerCase().includes(rawName.toLowerCase().split(' ')[0]))?.[0] || rawName) : rawName;
+    if (!memberIssuesMap[key]) memberIssuesMap[key] = [];
+    memberIssuesMap[key].push(issue);
+  }
   const total=issues.length,members=sorted.length;
   const top=sorted[0];
   const avg=members>0?(total/members).toFixed(1):0;
@@ -521,10 +694,20 @@ function renderDashboard(issues,todayStr,now){
     },
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.y} tickets`}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.y} tickets · ${getOKRLevel(c.parsed.y).label}`}}},
       scales:{
         x:{grid:{color:'#2e3155'},ticks:{color:'#8b8fa8'}},
         y:{grid:{color:'#2e3155'},ticks:{color:'#8b8fa8',stepSize:1},beginAtZero:true}
+      },
+      onClick:(e,els)=>{
+        if(!els.length) return;
+        const idx=els[0].index;
+        const name=sorted[idx][0];
+        const issuesForMember=memberIssuesMap[name]||[];
+        openMemberTickets(name, issuesForMember);
+      },
+      onHover:(e,els)=>{
+        e.native.target.style.cursor=els.length?'pointer':'default';
       }
     }
   });
